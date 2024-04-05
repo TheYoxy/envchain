@@ -1,8 +1,9 @@
+use clap::CommandFactory;
 use colored::Colorize;
 use keyring::Entry;
 use log::{debug, error, info, warn};
 
-use crate::cli::Commands;
+use crate::cli::{Cli, Commands};
 
 pub const KEYRING_SERVICE: &str = "envchain";
 
@@ -16,6 +17,12 @@ pub fn open_keyring(name: &str) -> Entry {
 /// Main handler for commands
 pub fn handle_command(command: &Commands) -> Result<String, String> {
   match command {
+    Commands::Completions { shell } => {
+      let mut value = Vec::new();
+      shell.generate(&mut Cli::command(), &mut value);
+
+      Ok(String::from_utf8(value).expect("Unable to generate completions"))
+    },
     Commands::Get { name } => {
       info!("Getting credential {name}");
       let entry = open_keyring(name);

@@ -10,6 +10,13 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+  /// Generate shell completions
+  Completions {
+    /// the shell to generate completions for
+    #[arg(value_enum)]
+    shell: clap_complete_command::Shell,
+  },
+
   /// Get a secret
   #[command(arg_required_else_help = true)]
   Get {
