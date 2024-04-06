@@ -1,5 +1,3 @@
-#![feature(lazy_cell)]
-
 use std::io::Result;
 
 use clap::Parser;
