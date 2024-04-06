@@ -1,6 +1,7 @@
 use std::io::Result;
 
 use clap::Parser;
+use colored::Colorize;
 use log::info;
 
 use crate::{cli::Cli, commands::handle_command, utils::initialize_logging};
@@ -23,7 +24,7 @@ fn main() -> Result<()> {
       println!("{result}");
     },
     Err(e) => {
-      eprintln!("{e}");
+      eprintln!("{}: {}", "Error".red(), e);
       std::process::exit(1);
     },
   }

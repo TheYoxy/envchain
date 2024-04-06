@@ -14,8 +14,49 @@ pub fn open_keyring(name: &str) -> Entry {
     .unwrap_or_else(|_| panic!("Unable to load keyring {:?} for value {:?}", KEYRING_SERVICE, &name))
 }
 
+#[cfg(target_os = "macos")]
+fn check() -> Result<(), String> {
+  use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
+  use terminal_prompt::Terminal;
+
+  let user_interaction_allowed = SecKeychain::user_interaction_allowed().unwrap();
+  info!("User interaction allowed: {:?}", user_interaction_allowed);
+  let mut keychain = SecKeychain::default_for_domain(SecPreferencesDomain::User).unwrap();
+  match keychain.unlock(None) {
+    Ok(_) => {
+      info!("keychain unlocked with default value");
+    },
+    Err(err) => {
+      warn!("unable to unlock keychain {:?}, asking user the password to unlock it", err);
+      let mut terminal = match Terminal::open() {
+        Ok(it) => it,
+        Err(err) => return Err(err.to_string()),
+      };
+
+      let password = terminal.prompt_sensitive("Enter keychain password: ").unwrap();
+      match keychain.unlock(Some(&password)) {
+        Ok(_) => {
+          info!("keychain unlocked");
+        },
+        Err(err) => {
+          error!("unable to unlock keychain {:?}, exiting", err);
+          return Err(err.to_string());
+        },
+      }
+    },
+  }
+
+  Ok(())
+}
+
+#[cfg(target_os = "macos")]
+const MACOS_USER_INTERACTION_NOT_ALLOWED: i32 = -25308;
+
 /// Main handler for commands
 pub fn handle_command(command: &Commands) -> Result<String, String> {
+  #[cfg(target_os = "macos")]
+  check()?;
+
   match command {
     Commands::Completions { shell } => {
       let mut value = Vec::new();
@@ -27,11 +68,22 @@ pub fn handle_command(command: &Commands) -> Result<String, String> {
       info!("Getting credential {name}");
       let entry = open_keyring(name);
       debug!("Getting password {name}");
-      if let Ok(password) = entry.get_password() {
-        Ok(password)
-      } else {
-        warn!("Entry {:?} doesn't exists", name);
-        Err(format!("Entry {:?} doesn't exists", name))
+      match entry.get_password() {
+        Ok(password) => Ok(password),
+        Err(error) => {
+          #[cfg(target_os = "macos")]
+          if let keyring::Error::PlatformFailure(err) = error {
+            if let Some(e) = err.downcast_ref::<security_framework::base::Error>() {
+              if e.code() == MACOS_USER_INTERACTION_NOT_ALLOWED {
+                error!("User interaction is not allowed, please unlock the keychain first");
+                return Err(format!("Unable to get entry {:?}: User interaction are disabled", name));
+              }
+            }
+            debug!("Unable to get password {:?} {:?}", name, err);
+          }
+          warn!("Entry {:?} doesn't exists", name);
+          Err(format!("Entry {:?} doesn't exists", name))
+        },
       }
     },
     Commands::Set { name, value, force } => {

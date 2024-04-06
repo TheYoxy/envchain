@@ -1,6 +1,6 @@
 [package]
 name = "envchain"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 description = "A cli tool to manage secrets in the keyring"
@@ -10,6 +10,9 @@ readme = "README.md"
 build = "build.rs"
 license-file = "LICENSE.txt"
 homepage = "https://github.com/TheYoxy/envchain"
+
+[features]
+default = ["security-framework", "linux-keyutils", "terminal-prompt"]
 
 [dependencies]
 color-eyre = "0.6"
@@ -35,4 +38,17 @@ clap = { version = "4", features = [
     "unstable-styles",
 ] }
 clap_complete_command = "0.5"
-colored = "2.1.0"
+colored = "2"
+simple_logger = "4"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+security-framework = { version = "2", optional = true }
+terminal-prompt = { version = "0.2", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "2", optional = true }
+terminal-prompt = { version = "0.2", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+secret-service = { version = "3", optional = true }
+linux-keyutils = { version = "0.2", features = ["std"], optional = true }

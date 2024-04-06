@@ -1,14 +1,8 @@
-use std::{
-  env::var,
-  fs::{create_dir_all, File},
-  io::Result,
-  path::PathBuf,
-};
-
-use directories::ProjectDirs;
 use lazy_static::lazy_static;
-use tracing_error::ErrorLayer;
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer};
+use std::{env::var, io::Result, path::PathBuf};
+
+#[cfg(not(debug_assertions))]
+use directories::ProjectDirs;
 
 lazy_static! {
   pub static ref PKG_NAME: String = env!("CARGO_PKG_NAME").to_string();
@@ -21,10 +15,12 @@ lazy_static! {
   pub static ref LOG_FILE: String = format!("{}.log", PKG_NAME.as_str());
 }
 
+#[cfg(not(debug_assertions))]
 fn project_directory() -> Option<ProjectDirs> {
   ProjectDirs::from("be", "endevops", &PKG_NAME)
 }
 
+#[cfg(not(debug_assertions))]
 pub fn get_data_dir() -> PathBuf {
   return if let Some(s) = DATA_FOLDER.clone() {
     s
@@ -41,23 +37,32 @@ pub fn get_data_dir() -> PathBuf {
 ///
 /// This function will return an error if .
 pub fn initialize_logging() -> Result<()> {
-  let directory = get_data_dir();
-  create_dir_all(&directory)?;
-  let log_path = directory.join(LOG_FILE.clone());
-  let log_file = File::create(log_path)?;
-
   #[cfg(debug_assertions)]
   std::env::set_var("RUST_LOG", var("RUST_LOG").unwrap_or_else(|_| format!("{}=info", env!("CARGO_CRATE_NAME"))));
 
-  let file_subscriber = tracing_subscriber::fmt::layer()
-    .with_file(true)
-    .with_line_number(true)
-    .with_writer(log_file)
-    .with_target(false)
-    .with_ansi(false)
-    .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
-  tracing_subscriber::registry().with(file_subscriber).with(ErrorLayer::default()).init();
+  #[cfg(debug_assertions)]
+  simple_logger::SimpleLogger::new().with_level(log::LevelFilter::Debug).env().init().unwrap();
+  #[cfg(not(debug_assertions))]
+  {
+    
+    use std::fs::{create_dir_all, File};
+    
+    use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer};
 
+    let directory = get_data_dir();
+    create_dir_all(&directory)?;
+    let log_path = directory.join(LOG_FILE.clone());
+    let log_file = File::create(log_path)?;
+
+    let file_subscriber = tracing_subscriber::fmt::layer()
+      .with_file(true)
+      .with_line_number(true)
+      .with_writer(log_file)
+      .with_target(false)
+      .with_ansi(false)
+      .with_filter(tracing_subscriber::filter::EnvFilter::from_default_env());
+    tracing_subscriber::registry().with(file_subscriber).with(tracing_error::ErrorLayer::default()).init();
+  }
   Ok(())
 }
 
@@ -67,6 +72,7 @@ pub fn initialize_logging() -> Result<()> {
 /// By default, the verbosity level for the generated events is `DEBUG`, but
 /// this can be customized.
 #[macro_export]
+#[cfg(not(debug_assertions))]
 macro_rules! trace_dbg {
     (target: $target:expr, level: $level:expr, $ex:expr) => {{
         match $ex {
