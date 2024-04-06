@@ -6,7 +6,10 @@ edition = "2021"
 description = "A cli tool to manage secrets in the keyring"
 authors = ["TheYoxy <floryansimar@gmail.com>"]
 repository = "https://github.com/TheYoxy/envchain"
-license = "MIT"
+readme = "README.md"
+build = "build.rs"
+license-file = "LICENSE.txt"
+homepage = "https://github.com/TheYoxy/envchain"
 
 [dependencies]
 color-eyre = "0.6"
