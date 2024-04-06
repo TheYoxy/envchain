@@ -70,8 +70,12 @@ pub fn handle_command(command: &Commands) -> Result<String, String> {
       debug!("Getting password {name}");
       match entry.get_password() {
         Ok(password) => Ok(password),
+        Err(_) => {
+          warn!("Entry {:?} doesn't exists", name);
+          Err(format!("Entry {:?} doesn't exists", name))
+        },
+        #[cfg(target_os = "macos")]
         Err(error) => {
-          #[cfg(target_os = "macos")]
           if let keyring::Error::PlatformFailure(err) = error {
             if let Some(e) = err.downcast_ref::<security_framework::base::Error>() {
               if e.code() == MACOS_USER_INTERACTION_NOT_ALLOWED {
